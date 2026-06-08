@@ -75,7 +75,9 @@ data class AppSystemConfig(
     val freeDailyLimit: Int = 15,
     val premiumDailyLimit: Int = 9999,
     val defaultModel: String = "gemini-3.5-flash",
-    val openRouterApiKey: String = ""
+    val openRouterApiKey: String = "",
+    val instagramId: String = "",
+    val telegramGroup: String = ""
 )
 
 // ==========================================================
@@ -200,7 +202,7 @@ interface AppConfigDao {
         PaymentTx::class,
         AppSystemConfig::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

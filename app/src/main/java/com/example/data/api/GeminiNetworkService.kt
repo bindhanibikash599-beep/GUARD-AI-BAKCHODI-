@@ -45,9 +45,20 @@ Ensure your response is concise, high-quality, and directly represents the clean
     ): String = withContext(Dispatchers.IO) {
         val selectedSystem = if (systemModePrompt.isNotEmpty()) "$SYSTEM_PROMPT\nSpecific Task Instruction: $systemModePrompt" else SYSTEM_PROMPT
 
+        val resolvedOpenRouterKey = if (openRouterKey.isNotEmpty()) {
+            openRouterKey
+        } else {
+            val buildConfigKey = BuildConfig.OPENROUTER_API_KEY
+            if (buildConfigKey.isNotEmpty() && buildConfigKey != "MY_OPENROUTER_API_KEY") {
+                buildConfigKey
+            } else {
+                ""
+            }
+        }
+
         // Check if we should use OpenRouter
-        if (openRouterKey.isNotEmpty() && openRouterKey.startsWith("sk-or-")) {
-            return@withContext callOpenRouter(prompt, customModelName.ifEmpty { "z-ai/glm-4.5-air:free" }, openRouterKey, selectedSystem)
+        if (resolvedOpenRouterKey.isNotEmpty() && resolvedOpenRouterKey.startsWith("sk-or-")) {
+            return@withContext callOpenRouter(prompt, customModelName.ifEmpty { "z-ai/glm-4.5-air:free" }, resolvedOpenRouterKey, selectedSystem)
         } else {
             return@withContext callGemini(prompt, customModelName.ifEmpty { "gemini-3.5-flash" }, selectedSystem)
         }

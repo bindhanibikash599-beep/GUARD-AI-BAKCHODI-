@@ -121,13 +121,14 @@ fun GuardAiAppContent(viewModel: AppViewModel) {
     val currentScreen by viewModel.currentScreen.collectAsStateWithLifecycle()
     val config by viewModel.appConfig.collectAsStateWithLifecycle()
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val isAdminMode by viewModel.isAdminMode.collectAsStateWithLifecycle()
 
     var activeLanguage by remember { mutableStateOf("English") } // English, Hindi, Odia
     val primaryColor = parseThemeColor(config.themeColorHex, Color(0xFF2196F3))
 
     // Check Maintenance mode bypass for administrators
     val isBypassed = currentUser?.role == "Admin" || currentUser?.role == "Super Admin"
-    if (config.isMaintenanceMode && !isBypassed && currentScreen != AppScreen.Splash && currentScreen != AppScreen.Login) {
+    if (config.isMaintenanceMode && !isBypassed && currentScreen != AppScreen.Splash && currentScreen != AppScreen.Login && currentScreen != AppScreen.Register) {
         MaintenanceModeScreen(config, primaryColor, viewModel)
         return
     }
@@ -142,96 +143,200 @@ fun GuardAiAppContent(viewModel: AppViewModel) {
                 AppScreen.Login -> LoginScreen(viewModel, primaryColor)
                 AppScreen.Register -> RegisterScreen(viewModel, primaryColor)
                 else -> {
-                    // Authenticated Shell container
-                    Scaffold(
-                        bottomBar = {
-                            BottomNavBar(
-                                currentScreen = currentScreen,
-                                onTabSelected = { viewModel.navigateTo(it) },
-                                primaryColor = primaryColor,
-                                userRole = currentUser?.role ?: "User"
-                            )
-                        },
-                        containerColor = Color(0xFF121212),
-                        contentWindowInsets = WindowInsets.safeDrawing
-                    ) { innerPadding ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding)
-                        ) {
-                            Column {
-                                // Dynamic Title Bar with language selector
-                                TopHeaderBar(
-                                    config = config,
-                                    currentUser = currentUser,
-                                    activeLanguage = activeLanguage,
-                                    onLanguageToggle = {
-                                        activeLanguage = when (activeLanguage) {
-                                            "English" -> "Hindi"
-                                            "Hindi" -> "Odia"
-                                            else -> "English"
-                                        }
-                                    },
-                                    onLogout = { viewModel.executeLogout(context) },
-                                    primaryColor = primaryColor,
-                                    currentScreen = currentScreen,
-                                    onBackClicked = { viewModel.navigateBack() }
-                                )
+                    val isUserAdmin = currentUser?.role == "Admin" || currentUser?.role == "Super Admin"
+                    val showAdminWorkspace = isUserAdmin && isAdminMode
 
-                                // Banner Ads (Respect parameters)
-                                if (config.adsEnabled && currentUser?.isPremium == false) {
+                    if (showAdminWorkspace) {
+                        // ==========================================
+                        // DEDICATED SEPARATE ADMIN WORKSPACE LAYOUT
+                        // ==========================================
+                        Scaffold(
+                            topBar = {
+                                Column(modifier = Modifier.fillMaxWidth()) {
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .background(Brush.horizontalGradient(listOf(Color(0xFF2E2E2E), Color(0xFF1E1E1E))))
-                                            .padding(vertical = 4.dp, horizontal = 12.dp)
-                                            .testTag("banner_ad")
+                                            .background(Color(0xFF1B1B26))
+                                            .padding(horizontal = 14.dp, vertical = 10.dp)
                                     ) {
                                         Row(
+                                            modifier = Modifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            modifier = Modifier.fillMaxWidth()
+                                            horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .background(primaryColor, RoundedCornerShape(3.dp))
-                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                Icon(
+                                                    imageVector = Icons.Default.Settings,
+                                                    contentDescription = "Admin System Drawer",
+                                                    tint = primaryColor,
+                                                    modifier = Modifier.size(24.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column {
+                                                    Text(
+                                                        "HQ SYSTEM ADMIN CONSOLE",
+                                                        color = Color.White,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        letterSpacing = 1.sp
+                                                    )
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(primaryColor.copy(alpha = 0.2f), RoundedCornerShape(4.dp))
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            "ROLE: " + (currentUser?.role ?: "Admin").uppercase(),
+                                                            color = primaryColor,
+                                                            fontSize = 8.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                // Exit Admin Mode -> back to User Mode
+                                                Button(
+                                                    onClick = { viewModel.toggleAdminMode(false) },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C2C3D)),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    modifier = Modifier.height(30.dp)
                                                 ) {
-                                                    Text("Ad", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.ArrowBack,
+                                                            contentDescription = "Exit to User",
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(12.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text("EXIT TO USER PANEL", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                    }
                                                 }
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                Text(
-                                                    "Bikash logistics protective agency. Upgrade to star zero ads!",
-                                                    color = Color.LightGray,
-                                                    fontSize = 11.sp,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
-                                            TextButton(
-                                                onClick = { viewModel.navigateTo(AppScreen.Premium) },
-                                                contentPadding = PaddingValues(0.dp)
-                                            ) {
-                                                Text("Remove", color = primaryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                IconButton(
+                                                    onClick = { viewModel.executeLogout(context) },
+                                                    modifier = Modifier.size(30.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Person,
+                                                        contentDescription = "Exit",
+                                                        tint = Color.Gray,
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
                                             }
                                         }
                                     }
+                                    HorizontalDivider(color = Color(0xFF2B2B3E), thickness = 1.dp)
                                 }
+                            },
+                            containerColor = Color(0xFF0F0F12),
+                            contentWindowInsets = WindowInsets.safeDrawing
+                        ) { innerPadding ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                            ) {
+                                AdminDashboardScreen(viewModel, primaryColor)
+                            }
+                        }
+                    } else {
+                        // ==========================================
+                        // DEDICATED SEPARATE USER WORKSPACE LAYOUT
+                        // ==========================================
+                        Scaffold(
+                            bottomBar = {
+                                BottomNavBar(
+                                    currentScreen = currentScreen,
+                                    onTabSelected = { viewModel.navigateTo(it) },
+                                    primaryColor = primaryColor,
+                                    userRole = currentUser?.role ?: "User"
+                                )
+                            },
+                            containerColor = Color(0xFF121212),
+                            contentWindowInsets = WindowInsets.safeDrawing
+                        ) { innerPadding ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                            ) {
+                                Column {
+                                    // Dynamic Title Bar with language selector
+                                    TopHeaderBar(
+                                        config = config,
+                                        currentUser = currentUser,
+                                        activeLanguage = activeLanguage,
+                                        onLanguageToggle = {
+                                            activeLanguage = when (activeLanguage) {
+                                                "English" -> "Hindi"
+                                                "Hindi" -> "Odia"
+                                                else -> "English"
+                                            }
+                                        },
+                                        onLogout = { viewModel.executeLogout(context) },
+                                        primaryColor = primaryColor,
+                                        currentScreen = currentScreen,
+                                        onBackClicked = { viewModel.navigateBack() }
+                                    )
 
-                                Box(modifier = Modifier.fillMaxSize().weight(1f)) {
-                                    when (currentScreen) {
-                                        AppScreen.Dashboard -> DashboardScreen(viewModel, primaryColor, activeLanguage)
-                                        AppScreen.GeneratorHome -> GeneratorHomeScreen(viewModel, primaryColor, activeLanguage)
-                                        AppScreen.GeneratorForm -> GeneratorFormScreen(viewModel, primaryColor, activeLanguage)
-                                        AppScreen.History -> HistoryAndStarredScreen(viewModel, primaryColor, activeLanguage, showFavoritesOnly = false)
-                                        AppScreen.Favorites -> HistoryAndStarredScreen(viewModel, primaryColor, activeLanguage, showFavoritesOnly = true)
-                                        AppScreen.AIChat -> ChatScreen(viewModel, primaryColor)
-                                        AppScreen.Premium -> PremiumScreen(viewModel, primaryColor)
-                                        AppScreen.AdminDashboard -> AdminDashboardScreen(viewModel, primaryColor)
-                                        AppScreen.Profile -> ProfileScreen(viewModel, primaryColor, activeLanguage)
-                                        else -> {}
+                                    // Banner Ads (Respect parameters)
+                                    if (config.adsEnabled && currentUser?.isPremium == false) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(Brush.horizontalGradient(listOf(Color(0xFF2E2E2E), Color(0xFF1E1E1E))))
+                                                .padding(vertical = 4.dp, horizontal = 12.dp)
+                                                .testTag("banner_ad")
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                modifier = Modifier.fillMaxWidth()
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .background(primaryColor, RoundedCornerShape(3.dp))
+                                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text("Ad", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        "Bikash logistics protective agency. Upgrade to star zero ads!",
+                                                        color = Color.LightGray,
+                                                        fontSize = 11.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                }
+                                                TextButton(
+                                                    onClick = { viewModel.navigateTo(AppScreen.Premium) },
+                                                    contentPadding = PaddingValues(0.dp)
+                                                ) {
+                                                    Text("Remove", color = primaryColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Box(modifier = Modifier.fillMaxSize().weight(1f)) {
+                                        when (currentScreen) {
+                                            AppScreen.Dashboard -> DashboardScreen(viewModel, primaryColor, activeLanguage)
+                                            AppScreen.GeneratorHome -> GeneratorHomeScreen(viewModel, primaryColor, activeLanguage)
+                                            AppScreen.GeneratorForm -> GeneratorFormScreen(viewModel, primaryColor, activeLanguage)
+                                            AppScreen.History -> HistoryAndStarredScreen(viewModel, primaryColor, activeLanguage, showFavoritesOnly = false)
+                                            AppScreen.Favorites -> HistoryAndStarredScreen(viewModel, primaryColor, activeLanguage, showFavoritesOnly = true)
+                                            AppScreen.AIChat -> ChatScreen(viewModel, primaryColor)
+                                            AppScreen.Premium -> PremiumScreen(viewModel, primaryColor)
+                                            AppScreen.Profile -> ProfileScreen(viewModel, primaryColor, activeLanguage)
+                                            else -> {}
+                                        }
                                     }
                                 }
                             }
@@ -307,6 +412,9 @@ fun SplashScreen(primaryColor: Color) {
 fun LoginScreen(viewModel: AppViewModel, primaryColor: Color) {
     val context = LocalContext.current
     val email by viewModel.loginEmail.collectAsStateWithLifecycle()
+    val isOpenedFromAdmin by viewModel.isOpenedFromAdminLauncher.collectAsStateWithLifecycle()
+    val adminPassword by viewModel.adminPassword.collectAsStateWithLifecycle()
+    var isPasswordVisible by remember { mutableStateOf(false) }
     
     Box(
         modifier = Modifier
@@ -336,7 +444,7 @@ fun LoginScreen(viewModel: AppViewModel, primaryColor: Color) {
                 textAlign = TextAlign.Center
             )
             Text(
-                "Officer Check-In Station",
+                if (isOpenedFromAdmin) "Admin Command Console" else "Officer Check-In Station",
                 color = Color.Gray,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center
@@ -360,6 +468,39 @@ fun LoginScreen(viewModel: AppViewModel, primaryColor: Color) {
                     .fillMaxWidth()
                     .testTag("login_email_input")
             )
+
+            if (isOpenedFromAdmin) {
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = adminPassword,
+                    onValueChange = { viewModel.adminPassword.value = it },
+                    label = { Text("Admin Security PIN") },
+                    singleLine = true,
+                    visualTransformation = if (isPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    trailingIcon = {
+                        androidx.compose.material3.TextButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
+                            Text(
+                                text = if (isPasswordVisible) "HIDE" else "SHOW",
+                                color = primaryColor,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = primaryColor,
+                        focusedLabelColor = primaryColor,
+                        unfocusedBorderColor = Color.DarkGray,
+                        unfocusedTextColor = Color.White,
+                        focusedTextColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("admin_password_input")
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             Button(
@@ -371,7 +512,7 @@ fun LoginScreen(viewModel: AppViewModel, primaryColor: Color) {
                     .height(52.dp)
                     .testTag("login_button")
             ) {
-                Text("LOGIN & STATION ON DUTY", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(if (isOpenedFromAdmin) "AUTHORIZE ADMIN LOG IN" else "LOGIN & STATION ON DUTY", color = Color.White, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -529,7 +670,7 @@ fun RegisterScreen(viewModel: AppViewModel, primaryColor: Color) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                listOf("User", "Premium User", "Admin").forEach { roleChoice ->
+                listOf("User", "Premium User").forEach { roleChoice ->
                     val selected = role == roleChoice
                     Card(
                         modifier = Modifier
@@ -2141,6 +2282,7 @@ fun PremiumScreen(viewModel: AppViewModel, primaryColor: Color) {
 fun ProfileScreen(viewModel: AppViewModel, primaryColor: Color, activeLanguage: String) {
     val context = LocalContext.current
     val currentUser by viewModel.currentUser.collectAsStateWithLifecycle()
+    val config by viewModel.appConfig.collectAsStateWithLifecycle()
 
     LazyColumn(
         modifier = Modifier
@@ -2237,6 +2379,61 @@ fun ProfileScreen(viewModel: AppViewModel, primaryColor: Color, activeLanguage: 
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            if (config.instagramId.isNotEmpty() || config.telegramGroup.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text("OFFICIAL SOCIAL CHANNELS & FEEDS:", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        if (config.instagramId.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.actionOpenUrl(config.instagramId, context)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Share,
+                                    contentDescription = "Instagram link",
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Follow Instagram Page", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        if (config.telegramGroup.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.actionOpenUrl(config.telegramGroup, context)
+                                    }
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Send,
+                                    contentDescription = "Telegram Group link",
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Join Telegram Channel / Group", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Technical developer support notes
             Card(
@@ -2449,20 +2646,16 @@ fun BottomNavBar(
             modifier = Modifier.testTag("nav_tab_history")
         )
 
-        // Show Admin Panel tab ONLY if logged in as Admin or Super Admin
-        val isAdmin = userRole == "Admin" || userRole == "Super Admin"
-        val activeTargetScreen = if (isAdmin) AppScreen.AdminDashboard else AppScreen.Profile
-
         NavigationBarItem(
-            selected = currentScreen == activeTargetScreen,
-            onClick = { onTabSelected(activeTargetScreen) },
+            selected = currentScreen == AppScreen.Profile,
+            onClick = { onTabSelected(AppScreen.Profile) },
             icon = {
                 Icon(
-                    imageVector = if (isAdmin) Icons.Default.Settings else Icons.Default.Person,
-                    contentDescription = "Console or profile"
+                    imageVector = Icons.Default.Person,
+                    contentDescription = "Profile"
                 )
             },
-            label = { Text(if (isAdmin) "Admin" else "Profile", fontSize = 10.sp) },
+            label = { Text("Profile", fontSize = 10.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = primaryColor,
                 selectedTextColor = primaryColor,
@@ -2470,7 +2663,7 @@ fun BottomNavBar(
                 unselectedIconColor = Color.Gray,
                 unselectedTextColor = Color.Gray
             ),
-            modifier = Modifier.testTag("nav_tab_admin_profile")
+            modifier = Modifier.testTag("nav_tab_profile")
         )
     }
 }
@@ -2703,6 +2896,8 @@ fun AdminDashboardScreen(viewModel: AppViewModel, primaryColor: Color) {
                     var freeLimVal by remember { mutableStateOf(config.freeDailyLimit.toString()) }
                     var premLimVal by remember { mutableStateOf(config.premiumDailyLimit.toString()) }
                     var defModelVal by remember { mutableStateOf(config.defaultModel) }
+                    var instagramIdVal by remember { mutableStateOf(config.instagramId) }
+                    var telegramGroupVal by remember { mutableStateOf(config.telegramGroup) }
 
                     OutlinedTextField(
                         value = webNameVal,
@@ -2740,6 +2935,17 @@ fun AdminDashboardScreen(viewModel: AppViewModel, primaryColor: Color) {
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = defModelVal,
+                        onValueChange = { defModelVal = it },
+                        label = { Text("Custom Model ID (e.g. gemini-1.5-pro)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
 
                     OutlinedTextField(
@@ -2747,6 +2953,29 @@ fun AdminDashboardScreen(viewModel: AppViewModel, primaryColor: Color) {
                         onValueChange = { openRouterKeyVal = it },
                         label = { Text("OpenRouter Access Bearer Key (Optional)") },
                         placeholder = { Text("sk-or-...") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text("Stream Social Integration Links:", color = Color.Gray, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = instagramIdVal,
+                        onValueChange = { instagramIdVal = it },
+                        label = { Text("Instagram Profile URL (e.g. https://instagram.com/username)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = telegramGroupVal,
+                        onValueChange = { telegramGroupVal = it },
+                        label = { Text("Telegram Group/Channel Link (e.g. https://t.me/group)") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White),
                         modifier = Modifier.fillMaxWidth()
@@ -2801,6 +3030,8 @@ fun AdminDashboardScreen(viewModel: AppViewModel, primaryColor: Color) {
                                 premiumLimit = premLimVal.toIntOrNull() ?: 9999,
                                 selectedDefaultModel = defModelVal,
                                 orKey = openRouterKeyVal,
+                                instaId = instagramIdVal,
+                                teleGrp = telegramGroupVal,
                                 context = context
                             )
                         },

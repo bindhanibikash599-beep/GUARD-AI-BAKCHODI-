@@ -66,6 +66,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _currentScreen = MutableStateFlow(AppScreen.Splash)
     val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
 
+    private val _isAdminMode = MutableStateFlow(false)
+    val isAdminMode: StateFlow<Boolean> = _isAdminMode.asStateFlow()
+
+    private val _isOpenedFromAdminLauncher = MutableStateFlow(false)
+    val isOpenedFromAdminLauncher: StateFlow<Boolean> = _isOpenedFromAdminLauncher.asStateFlow()
+
+    fun markOpenedFromAdminLauncher() {
+        _isOpenedFromAdminLauncher.value = true
+        _isAdminMode.value = true
+    }
+
+    fun toggleAdminMode(enabled: Boolean) {
+        _isAdminMode.value = enabled
+        if (enabled) {
+            _currentScreen.value = AppScreen.AdminDashboard
+        } else {
+            _currentScreen.value = AppScreen.Dashboard
+        }
+    }
+
     // Screen backstack history to permit back button support
     private val _screenBackStack = mutableListOf<AppScreen>()
 
@@ -221,8 +241,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         // Show Splash initially, transition to Dashboard or Login
         viewModelScope.launch {
             kotlinx.coroutines.delay(2200)
-            if (repository.currentUserEmail.value.isNotEmpty()) {
-                navigateTo(AppScreen.Dashboard)
+            val savedEmail = repository.currentUserEmail.value
+            if (savedEmail.isNotEmpty()) {
+                if (_isOpenedFromAdminLauncher.value) {
+                    val usr = db.userDao().getUserByEmail(savedEmail)
+                    if (usr != null && (usr.role == "Admin" || usr.role == "Super Admin")) {
+                        // Force password entry on Admin app even if already registered/logged in
+                        loginEmail.value = savedEmail
+                        _isAdminMode.value = true
+                        navigateTo(AppScreen.Login)
+                    } else {
+                        // Non-admin attempting to access the Admin Console
+                        repository.logout()
+                        _isAdminMode.value = false
+                        Toast.makeText(application, "Access Denied: Admin privileges required.", Toast.LENGTH_LONG).show()
+                        navigateTo(AppScreen.Login)
+                    }
+                } else {
+                    _isAdminMode.value = false
+                    navigateTo(AppScreen.Dashboard)
+                }
             } else {
                 navigateTo(AppScreen.Login)
             }
@@ -257,6 +295,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // REGISTER & LOGIN FUNCTIONS
     // ==========================================
     var loginEmail = MutableStateFlow("")
+    val adminPassword = MutableStateFlow("")
     
     var regEmail = MutableStateFlow("")
     var regName = MutableStateFlow("")
@@ -271,11 +310,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         viewModelScope.launch {
+            if (_isOpenedFromAdminLauncher.value) {
+                val enteredPassword = adminPassword.value.trim()
+                if (enteredPassword != "757018") {
+                    Toast.makeText(context, "Access Denied: Incorrect Security PIN / Password.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+            }
+
             val success = repository.login(email)
             if (success) {
                 addLog("User logged-in: $email")
                 Toast.makeText(context, "Welcome back, $email!", Toast.LENGTH_SHORT).show()
-                navigateTo(AppScreen.Dashboard)
+                val usr = db.userDao().getUserByEmail(email)
+                if (_isOpenedFromAdminLauncher.value) {
+                    if (usr != null && (usr.role == "Admin" || usr.role == "Super Admin")) {
+                        _isAdminMode.value = true
+                        navigateTo(AppScreen.AdminDashboard)
+                    } else {
+                        repository.logout()
+                        _isAdminMode.value = false
+                        Toast.makeText(context, "Access Denied: This console is only for Admins.", Toast.LENGTH_LONG).show()
+                    }
+                } else {
+                    _isAdminMode.value = false
+                    navigateTo(AppScreen.Dashboard)
+                }
             } else {
                 Toast.makeText(context, "Login failed. Account may be BANNED or invalid.", Toast.LENGTH_LONG).show()
             }
@@ -308,6 +368,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun executeLogout(context: Context) {
         repository.logout()
+        _isAdminMode.value = false
         addLog("User logged out")
         Toast.makeText(context, "Logged out successfully", Toast.LENGTH_SHORT).show()
         navigateTo(AppScreen.Login)
@@ -490,6 +551,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val shareIntent = Intent.createChooser(sendIntent, "Share Professional Report via")
         shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(shareIntent)
+    }
+
+    fun actionOpenUrl(url: String, context: Context) {
+        if (url.isEmpty()) return
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Could not open URL: $url", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun actionSendWhatsApp(text: String, context: Context) {
@@ -742,6 +815,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         premiumLimit: Int,
         selectedDefaultModel: String,
         orKey: String,
+        instaId: String,
+        teleGrp: String,
         context: Context
     ) {
         viewModelScope.launch {
@@ -754,7 +829,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 freeDailyLimit = freeLimit,
                 premiumDailyLimit = premiumLimit,
                 defaultModel = selectedDefaultModel,
-                openRouterApiKey = orKey
+                openRouterApiKey = orKey,
+                instagramId = instaId,
+                telegramGroup = teleGrp
             )
             repository.updateAppConfig(updated)
             Toast.makeText(context, "Platform parameters saved successfully", Toast.LENGTH_SHORT).show()

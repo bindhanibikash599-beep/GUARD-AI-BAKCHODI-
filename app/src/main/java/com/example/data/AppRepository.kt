@@ -69,7 +69,9 @@ class AppRepository(private val context: Context, private val database: AppDatab
                     freeDailyLimit = 15,
                     premiumDailyLimit = 9999,
                     defaultModel = "gemini-3.5-flash",
-                    openRouterApiKey = ""
+                    openRouterApiKey = "",
+                    instagramId = "https://instagram.com/bindhanibikash71",
+                    telegramGroup = "https://t.me/bindhanibikash"
                 )
             )
         }
@@ -132,6 +134,21 @@ class AppRepository(private val context: Context, private val database: AppDatab
                     premiumExpiryDate = System.currentTimeMillis() + (3650L * 24 * 60 * 60 * 1000),
                     credits = 999999,
                     referralCode = "DEVELOPER1"
+                )
+            )
+        }
+
+        // Super Admin - Bikash Bindhani (User Account)
+        if (userDao.getUserByEmail("bindhanibikash71@gmail.com") == null) {
+            userDao.insertOrUpdateUser(
+                UserAccount(
+                    email = "bindhanibikash71@gmail.com",
+                    name = "Bikash Bindhani",
+                    role = "Super Admin",
+                    isPremium = true,
+                    premiumExpiryDate = System.currentTimeMillis() + (3650L * 24 * 60 * 60 * 1000),
+                    credits = 999999,
+                    referralCode = "BIKASH757"
                 )
             )
         }
