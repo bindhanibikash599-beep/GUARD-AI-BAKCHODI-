@@ -1,0 +1,6 @@
+{
+  "name": "Guard English AI",
+  "description": "Professional English Writing Assistant For Security Guards & Supervisors",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
